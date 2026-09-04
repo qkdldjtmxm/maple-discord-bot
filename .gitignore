@@ -1,0 +1,8 @@
+# Python 관련 캐시 및 가상환경
+__pycache__/
+venv/
+*.pyc
+
+# 환경 변수 및 데이터베이스 보안 파일
+.env
+*.db
