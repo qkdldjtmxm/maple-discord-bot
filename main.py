@@ -12,6 +12,27 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# [추가] 전투력 숫자 포맷 함수
+def format_combat_power(power) -> str:
+    # 숫자가 아니거나 '정보 없음' 등의 문자열인 경우 그대로 반환
+    if not isinstance(power, (int, float)) or power <= 0:
+        return str(power)
+    
+    eok = int(power // 100000000)          # 억 단위
+    remainder = int(power % 100000000)
+    man = remainder // 10000           # 만 단위
+    rest = remainder % 10000           # 나머지
+    
+    result = []
+    if eok > 0:
+        result.append(f"{eok}억")
+    if man > 0:
+        result.append(f"{man:,}만")       # 3자리마다 콤마 추가
+    if rest > 0 or (eok == 0 and man == 0):
+        result.append(f"{rest:,}")
+        
+    return " ".join(result)
+
 # [자동 완성 함수]
 async def nickname_autocomplete(interaction: discord.Interaction, current: str):
     nicknames = await get_all_nicknames()
@@ -64,7 +85,16 @@ async def 캐릭터(interaction: discord.Interaction, nickname: str):
         
         if stat:
             final_stats = stat.get('final_stat', [])
-            power = next((item.get('stat_value') for item in final_stats if item.get('stat_name') == '전투력'), '정보 없음')
+            raw_power = next((item.get('stat_value') for item in final_stats if item.get('stat_name') == '전투력'), '정보 없음')
+            
+            # [수정] 전투력 숫자를 '억 만' 단위로 변환
+            try:
+                # API에서 문자열 형태의 숫자로 올 수 있으므로 float/int로 변환 시도
+                power_val = float(raw_power)
+                power = format_combat_power(power_val)
+            except (TypeError, ValueError):
+                power = raw_power  # 변환할 수 없는 경우(정보 없음 등) 원래 값 유지
+                
             embed.add_field(name="전투력", value=power, inline=False)
 
         if items:
@@ -102,7 +132,6 @@ async def 레벨알림(interaction: discord.Interaction, nickname: str):
 @app_commands.describe(nickname="알림을 취소할 캐릭터의 닉네임")
 @app_commands.autocomplete(nickname=nickname_autocomplete)
 async def 알림취소(interaction: discord.Interaction, nickname: str):
-    # [추가] 데이터베이스에 알림이 설정되어 있는지 확인
     if not await is_alert_exists(nickname):
         await interaction.response.send_message(f"⚠️ **{nickname}** 님은 레벨알림 설정이 되어 있지 않습니다!", ephemeral=True)
         return
